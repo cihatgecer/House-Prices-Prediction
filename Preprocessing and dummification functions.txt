@@ -1,0 +1,317 @@
+def preprocess_data_train(df):
+    """Preprocess the dataset by applying feature engineering, missing value handling, and type conversions."""
+    
+    # Drop 'LotFrontage' column
+    df = df.drop(columns=['LotFrontage'], errors='ignore')
+    
+    # Fill missing values for categorical columns
+    df['Alley'] = df['Alley'].fillna('NoAlley')
+    df['FireplaceQu'] = df['FireplaceQu'].fillna('NF')
+    df['GarageType'] = df['GarageType'].fillna('NoGar')
+    df['GarageFinish'] = df['GarageFinish'].fillna('NoG')
+    df[['GarageQual', 'GarageCond']] = df[['GarageQual', 'GarageCond']].fillna('NG')
+    df['PoolQC'] = df['PoolQC'].fillna('NP')
+    df['Fence'] = df['Fence'].fillna('NoFen')
+    df['MiscFeature'] = df['MiscFeature'].fillna('None')
+    
+    # Fill missing basement-related columns
+    basement_cols = ['BsmtQual', 'BsmtCond', 'BsmtExposure', 'BsmtFinType1', 'BsmtFinType2']
+    df[basement_cols] = df[basement_cols].fillna('NB')
+
+    # Create 'Remodeled' feature (True if house was remodeled)
+    df['Remodeled'] = df['YearBuilt'] != df['YearRemodAdd']
+
+    # Place 'Remodeled' before 'YearRemodAdd'
+    columns = list(df.columns)
+    remod_index = columns.index('YearRemodAdd')
+    columns.insert(remod_index, columns.pop(columns.index('Remodeled')))
+    df = df[columns]
+
+    # Set 'YearRemodAdd' to 0 if it matches 'YearBuilt'
+    df.loc[df['YearRemodAdd'] == df['YearBuilt'], 'YearRemodAdd'] = 0
+
+    # Handling missing 'MasVnrType' and 'MasVnrArea'
+    df.loc[(df['MasVnrArea'] == 0) & (df['MasVnrType'].isna()), 'MasVnrType'] = 'NoVnr'
+    df.loc[df['MasVnrArea'].isna(), 'MasVnrType'] = 'NoVnr'
+    df['MasVnrArea'] = df['MasVnrArea'].fillna(0)
+
+    # Fill missing 'MasVnrType' with most frequent value in 'Neighborhood' (excluding 'NoVnr')
+    most_frequent_masvnrtype = (
+        df[df['MasVnrType'] != 'NoVnr']
+        .groupby('Neighborhood')['MasVnrType']
+        .agg(lambda x: x.mode()[0] if not x.mode().empty else None)
+    )
+    df['MasVnrType'] = df.apply(lambda row: most_frequent_masvnrtype.get(row['Neighborhood'], row['MasVnrType'])
+                                    if pd.isna(row['MasVnrType']) else row['MasVnrType'], axis=1)
+
+    # Fill missing 'Electrical' with most frequent value in 'Neighborhood'
+    most_frequent_electrical = (
+        df.groupby('Neighborhood')['Electrical']
+        .apply(lambda x: x.mode()[0] if not x.mode().empty else None)
+    )
+    df['Electrical'] = df.apply(lambda row: most_frequent_electrical[row['Neighborhood']]
+                                    if pd.isna(row['Electrical']) else row['Electrical'], axis=1)
+
+    # Create 'HasGarage' feature (True if garage exists)
+    df['HasGarage'] = df['GarageType'] != 'NoGar'
+
+    # Place 'HasGarage' before 'GarageType'
+    columns = list(df.columns)
+    garage_type_index = columns.index('GarageType')
+    columns.insert(garage_type_index, columns.pop(columns.index('HasGarage')))
+    df = df[columns]
+
+    # Fill missing 'GarageYrBlt' with 0
+    df['GarageYrBlt'] = df['GarageYrBlt'].fillna(0)
+
+    # If 'Condition1' == 'Condition2', set 'Condition2' to 'None'
+    df.loc[df['Condition1'] == df['Condition2'], 'Condition2'] = 'None'
+
+    # Convert 'MSSubClass' to string
+    df['MSSubClass'] = df['MSSubClass'].astype('str')
+    
+    # Convert 'Y' to True, 'N' to False and set data type to boolean
+    df['CentralAir'] = df['CentralAir'].map({'Y': True, 'N': False}).astype(bool)
+
+    # Convert selected columns to float64
+    float_columns = [
+        'LotArea', 'MasVnrArea', 'BsmtFinSF1', 'BsmtFinSF2', 'BsmtUnfSF', 'TotalBsmtSF',
+        '1stFlrSF', '2ndFlrSF', 'LowQualFinSF', 'GrLivArea', 'GarageArea', 'WoodDeckSF', 
+        'OpenPorchSF', 'EnclosedPorch', '3SsnPorch', 'ScreenPorch', 'PoolArea', 'MiscVal'
+    ]
+    df[float_columns] = df[float_columns].astype('float64')
+
+    # Convert selected columns to int64
+    int_columns = [
+        'OverallQual', 'OverallCond', 'YearBuilt', 'YearRemodAdd', 'BsmtFullBath', 'BsmtHalfBath',
+        'FullBath', 'HalfBath', 'BedroomAbvGr', 'KitchenAbvGr', 'TotRmsAbvGrd', 'Fireplaces',
+        'GarageYrBlt', 'GarageCars', 'MoSold', 'YrSold'
+    ]
+    df[int_columns] = df[int_columns].astype('int64')
+
+    return df
+----------------------------------------------------------------------------------------------------------------------------------------------------------
+data = preprocess_data_train(data)
+----------------------------------------------------------------------------------------------------------------------------------------------------------
+
+def preprocess_data_test(df):
+    """Preprocess the dataset by applying feature engineering, missing value handling, and type conversions."""
+    
+    # Drop 'LotFrontage' column
+    df = df.drop(columns=['LotFrontage'], errors='ignore')
+    
+    # Fill missing values for categorical columns
+    df['Alley'] = df['Alley'].fillna('NoAlley')
+    df['FireplaceQu'] = df['FireplaceQu'].fillna('NF')
+    df['GarageType'] = df['GarageType'].fillna('NoGar')
+    df['GarageFinish'] = df['GarageFinish'].fillna('NoG')
+    df[['GarageQual', 'GarageCond']] = df[['GarageQual', 'GarageCond']].fillna('NG')
+    df['PoolQC'] = df['PoolQC'].fillna('NP')
+    df['Fence'] = df['Fence'].fillna('NoFen')
+    df['MiscFeature'] = df['MiscFeature'].fillna('None')
+
+    # List of columns to fill missing values with the most frequent value
+    columns_to_fill = ['Utilities', 'Exterior1st', 'Exterior2nd', 'MSZoning', 'KitchenQual', 'Functional', 'SaleType']
+    # Fill each column with its mode (most frequent value)
+    for col in columns_to_fill:
+        df[col] = df[col].fillna(df[col].mode()[0])
+    
+    # Fill missing basement-related columns
+    basement_cols = ['BsmtQual', 'BsmtCond', 'BsmtExposure', 'BsmtFinType1', 'BsmtFinType2']
+    df[basement_cols] = df[basement_cols].fillna('NB')
+
+    # List of basement-related columns to fill with 0
+    bsmt_columns = ['BsmtFinSF1', 'BsmtFinSF2', 'BsmtUnfSF', 'TotalBsmtSF', 'BsmtFullBath', 'BsmtHalfBath']
+    # Apply condition: If 'BsmtQual' is 'NB' and value is NULL, replace with 0
+    df.loc[df['BsmtQual'] == 'NB', bsmt_columns] = df.loc[df['BsmtQual'] == 'NB', bsmt_columns].fillna(0)
+
+    # Create 'Remodeled' feature (True if house was remodeled)
+    df['Remodeled'] = df['YearBuilt'] != df['YearRemodAdd']
+
+    # Place 'Remodeled' before 'YearRemodAdd'
+    columns = list(df.columns)
+    remod_index = columns.index('YearRemodAdd')
+    columns.insert(remod_index, columns.pop(columns.index('Remodeled')))
+    df = df[columns]
+
+    # Set 'YearRemodAdd' to 0 if it matches 'YearBuilt'
+    df.loc[df['YearRemodAdd'] == df['YearBuilt'], 'YearRemodAdd'] = 0
+
+    # Handling missing 'MasVnrType' and 'MasVnrArea'
+    df.loc[(df['MasVnrArea'] == 0) & (df['MasVnrType'].isna()), 'MasVnrType'] = 'NoVnr'
+    df.loc[df['MasVnrArea'].isna(), 'MasVnrType'] = 'NoVnr'
+    df['MasVnrArea'] = df['MasVnrArea'].fillna(0)
+
+    # Fill missing 'MasVnrType' with most frequent value in 'Neighborhood' (excluding 'NoVnr')
+    most_frequent_masvnrtype = (
+        df[df['MasVnrType'] != 'NoVnr']
+        .groupby('Neighborhood')['MasVnrType']
+        .agg(lambda x: x.mode()[0] if not x.mode().empty else None)
+    )
+    df['MasVnrType'] = df.apply(lambda row: most_frequent_masvnrtype.get(row['Neighborhood'], row['MasVnrType'])
+                                    if pd.isna(row['MasVnrType']) else row['MasVnrType'], axis=1)
+
+    # Fill missing 'Electrical' with most frequent value in 'Neighborhood'
+    most_frequent_electrical = (
+        df.groupby('Neighborhood')['Electrical']
+        .apply(lambda x: x.mode()[0] if not x.mode().empty else None)
+    )
+    df['Electrical'] = df.apply(lambda row: most_frequent_electrical[row['Neighborhood']]
+                                    if pd.isna(row['Electrical']) else row['Electrical'], axis=1)
+
+    # Create 'HasGarage' feature (True if garage exists)
+    df['HasGarage'] = df['GarageType'] != 'NoGar'
+
+    # Place 'HasGarage' before 'GarageType'
+    columns = list(df.columns)
+    garage_type_index = columns.index('GarageType')
+    columns.insert(garage_type_index, columns.pop(columns.index('HasGarage')))
+    df = df[columns]
+
+    # Fill missing 'GarageYrBlt' with 0
+    df['GarageYrBlt'] = df['GarageYrBlt'].fillna(0)
+
+    # If 'Condition1' == 'Condition2', set 'Condition2' to 'None'
+    df.loc[df['Condition1'] == df['Condition2'], 'Condition2'] = 'None'
+
+    # Convert 'MSSubClass' to string
+    df['MSSubClass'] = df['MSSubClass'].astype('str')
+    
+    # Convert 'Y' to True, 'N' to False and set data type to boolean
+    df['CentralAir'] = df['CentralAir'].map({'Y': True, 'N': False}).astype(bool)
+
+    # Condition 1: Update GarageYrBlt based on YearRemodAdd and YearBuilt
+    mask = (df['HasGarage'] == True) & (df['GarageYrBlt'] == 0)
+    df.loc[mask, 'GarageYrBlt'] = df.loc[mask].apply(
+        lambda row: row['YearRemodAdd'] if row['YearRemodAdd'] != 0 else row['YearBuilt'], axis=1
+    )
+    # Condition 2: Replace 'NoG' in GarageFinish with the most frequent value
+    most_frequent_garage_finish = df['GarageFinish'].mode()[0]  # Find most frequent value
+    df.loc[(df['HasGarage'] == True) & (df['GarageFinish'] == 'NoG'), 'GarageFinish'] = most_frequent_garage_finish
+    # Condition 3: Replace 'NG' in GarageQual with the most frequent value
+    most_frequent_garage_qual = df['GarageQual'].mode()[0]  # Find most frequent value
+    df.loc[(df['HasGarage'] == True) & (df['GarageQual'] == 'NG'), 'GarageQual'] = most_frequent_garage_qual
+    # Condition 4: Replace 'NG' in GarageCond with the most frequent value
+    most_frequent_garage_cond = df['GarageCond'].mode()[0]  # Find most frequent value
+    df.loc[(df['HasGarage'] == True) & (df['GarageCond'] == 'NG'), 'GarageCond'] = most_frequent_garage_cond
+    
+    # Function to fill NULL values in GarageCars and GarageArea based on similar GarageYrBlt and GarageFinish
+    def fill_garage_values(row):
+        if pd.isnull(row['GarageCars']) or pd.isnull(row['GarageArea']):
+            # Filter dataset based on similar GarageYrBlt and GarageFinish
+            filtered_data = df[(df['GarageYrBlt'] == row['GarageYrBlt']) & 
+                                 (df['GarageFinish'] == row['GarageFinish'])]
+    
+            # Fill GarageCars with the most frequent value in the filtered dataset
+            if pd.isnull(row['GarageCars']) and not filtered_data['GarageCars'].dropna().empty:
+                row['GarageCars'] = filtered_data['GarageCars'].mode()[0]  # Most frequent value
+            
+            # Fill GarageArea with the average value in the filtered dataset
+            if pd.isnull(row['GarageArea']) and not filtered_data['GarageArea'].dropna().empty:
+                row['GarageArea'] = filtered_data['GarageArea'].mean()  # Average value
+            
+        return row
+    # Apply function to each row in the dataset
+    df = df.apply(fill_garage_values, axis=1)
+
+    # Convert selected columns to float64
+    float_columns = [
+        'LotArea', 'MasVnrArea', 'BsmtFinSF1', 'BsmtFinSF2', 'BsmtUnfSF', 'TotalBsmtSF',
+        '1stFlrSF', '2ndFlrSF', 'LowQualFinSF', 'GrLivArea', 'GarageArea', 'WoodDeckSF', 
+        'OpenPorchSF', 'EnclosedPorch', '3SsnPorch', 'ScreenPorch', 'PoolArea', 'MiscVal'
+    ]
+    df[float_columns] = df[float_columns].astype('float64')
+
+    # Convert selected columns to int64
+    int_columns = [
+        'OverallQual', 'OverallCond', 'YearBuilt', 'YearRemodAdd', 'BsmtFullBath', 'BsmtHalfBath',
+        'FullBath', 'HalfBath', 'BedroomAbvGr', 'KitchenAbvGr', 'TotRmsAbvGrd', 'Fireplaces',
+        'GarageYrBlt', 'GarageCars', 'MoSold', 'YrSold'
+    ]
+    df[int_columns] = df[int_columns].astype('int64')
+
+    return df
+----------------------------------------------------------------------------------------------------------------------------------------------------------
+data_test = preprocess_data_test(data_test)
+----------------------------------------------------------------------------------------------------------------------------------------------------------
+
+def dummify(df):
+
+    # Define the possible categories (static, predefined)
+    possible_categories = {
+        'MSSubClass': ['20', '30', '40', '45', '50', '60', '70', '75', '80', '85', '90', '120', '150', '160', '180', '190'],
+        'MSZoning': ['A', 'C (all)', 'FV', 'I', 'RH', 'RL', 'RP', 'RM'],
+        'Street': ['Grvl', 'Pave'],
+        'Alley': ['Grvl', 'Pave', 'NoAlley'],
+        'LotShape': ['Reg', 'IR1', 'IR2', 'IR3'],
+        'LandContour': ['Lvl', 'Bnk', 'HLS', 'Low'],
+        'Utilities': ['AllPub', 'NoSewr', 'NoSeWa', 'ELO'],
+        'LotConfig': ['Inside', 'Corner', 'CulDSac', 'FR2', 'FR3'],
+        'LandSlope': ['Gtl', 'Mod', 'Sev'],
+        'Neighborhood': ['Blmngtn', 'Blueste', 'BrDale', 'BrkSide', 'ClearCr', 'CollgCr', 'Crawfor', 'Edwards', 'Gilbert', 'IDOTRR', 'MeadowV', 'Mitchel', 'NAmes', 'NoRidge', 'NPlVill', 'NridgHt', 'NWAmes', 'OldTown', 'SWISU', 'Sawyer', 'SawyerW', 'Somerst', 'StoneBr', 'Timber', 'Veenker'],
+        'Condition1': ['Artery', 'Feedr', 'Norm', 'RRNn', 'RRAn', 'PosN', 'PosA', 'RRNe', 'RRAe'],
+        'Condition2': ['Artery', 'Feedr', 'Norm', 'RRNn', 'RRAn', 'PosN', 'PosA', 'RRNe', 'RRAe', 'None'],
+        'BldgType': ['1Fam', '2fmCon', 'Duplex', 'TwnhsE', 'Twnhs'],
+        'HouseStyle': ['1Story', '1.5Fin', '1.5Unf', '2Story', '2.5Fin', '2.5Unf', 'SFoyer', 'SLvl'],
+        'RoofStyle': ['Flat', 'Gable', 'Gambrel', 'Hip', 'Mansard', 'Shed'],
+        'RoofMatl': ['ClyTile', 'CompShg', 'Membran', 'Metal', 'Roll', 'Tar&Grv', 'WdShake', 'WdShngl'],
+        'Exterior1st': ['AsbShng', 'AsphShn', 'BrkComm', 'BrkFace', 'CBlock', 'CemntBd', 'HdBoard', 'ImStucc', 'MetalSd', 'Other', 'Plywood', 'PreCast', 'Stone', 'Stucco', 'VinylSd', 'Wd Sdng', 'WdShing'],
+        'Exterior2nd': ['AsbShng', 'AsphShn', 'BrkComm', 'BrkFace', 'CBlock', 'CemntBd', 'HdBoard', 'ImStucc', 'MetalSd', 'Other', 'Plywood', 'PreCast', 'Stone', 'Stucco', 'VinylSd', 'Wd Sdng', 'WdShing'],
+        'MasVnrType': ['BrkCmn', 'BrkFace', 'CBlock', 'NoVnr', 'Stone'],
+        'ExterQual': ['Ex', 'Gd', 'TA', 'Fa', 'Po'],
+        'ExterCond': ['Ex', 'Gd', 'TA', 'Fa', 'Po'],
+        'Foundation': ['BrkTil', 'CBlock', 'PConc', 'Slab', 'Stone', 'Wood'],
+        'BsmtQual': ['Ex', 'Gd', 'TA', 'Fa', 'Po', 'NB'],
+        'BsmtCond': ['Ex', 'Gd', 'TA', 'Fa', 'Po', 'NB'],
+        'BsmtExposure': ['Gd', 'Av', 'Mn', 'No', 'NB'],
+        'BsmtFinType1': ['GLQ', 'ALQ', 'BLQ', 'Rec', 'LwQ', 'Unf', 'NB'],
+        'BsmtFinType2': ['GLQ', 'ALQ', 'BLQ', 'Rec', 'LwQ', 'Unf', 'NB'],
+        'Heating': ['Floor', 'GasA', 'GasW', 'Grav', 'OthW', 'Wall'],
+        'HeatingQC': ['Ex', 'Gd', 'TA', 'Fa', 'Po'],
+        'Electrical': ['SBrkr', 'FuseA', 'FuseF', 'FuseP', 'Mix'],
+        'KitchenQual': ['Ex', 'Gd', 'TA', 'Fa', 'Po'],
+        'Functional': ['Typ', 'Min1', 'Min2', 'Mod', 'Maj1', 'Maj2', 'Sev', 'Sal'],
+        'FireplaceQu': ['Ex', 'Gd', 'TA', 'Fa', 'Po', 'NF'],
+        'GarageType': ['2Types', 'Attchd', 'Basment', 'BuiltIn', 'CarPort', 'Detchd', 'NoGar'],
+        'GarageFinish': ['RFn', 'Unf', 'Fin', 'NoG'],
+        'GarageQual': ['Ex', 'Gd', 'TA', 'Fa', 'Po', 'NG'],
+        'GarageCond': ['Ex', 'Gd', 'TA', 'Fa', 'Po', 'NG'],
+        'PavedDrive': ['Y', 'P', 'N'],
+        'PoolQC': ['Ex', 'Gd', 'TA', 'Fa', 'NP'],
+        'Fence': ['GdPrv', 'MnPrv', 'GdWo', 'MnWw', 'NoFen'],
+        'MiscFeature': ['Elev', 'Gar2', 'Othr', 'Shed', 'TenC', 'None'],
+        'SaleType': ['WD', 'CWD', 'VWD', 'New', 'COD', 'Con', 'ConLw', 'ConLI', 'ConLD', 'Oth'],
+        'SaleCondition': ['Normal', 'Abnorml', 'AdjLand', 'Alloca', 'Family', 'Partial']
+    }
+
+    df = df.copy()  # Work on a copy to avoid modifying the original DataFrame
+    original_columns = list(df.columns)  # Store original column order
+    new_columns = []  # To track the final column order
+
+    for col in original_columns:
+        if col in possible_categories:
+            # Create dummy variables while keeping column order
+            dummies = pd.get_dummies(df[col], prefix=col).astype(bool)  # Convert to bool
+
+            # Ensure all expected dummy columns exist
+            for category in possible_categories[col]:
+                dummy_col = f"{col}_{category}"
+                if dummy_col not in dummies.columns:
+                    dummies[dummy_col] = False  # Add missing column as False (bool)
+
+            # Drop original column and insert dummy columns in its position
+            df.drop(columns=[col], inplace=True)
+            df = pd.concat([df, dummies], axis=1)
+
+            # Keep track of new column order
+            new_columns.extend(dummies.columns)
+        else:
+            new_columns.append(col)  # Keep non-categorical columns in the same place
+
+    # Reorder columns to maintain original positions
+    df = df[new_columns]
+
+    return df
+----------------------------------------------------------------------------------------------------------------------------------------------------------
+df = dummify(df)
+----------------------------------------------------------------------------------------------------------------------------------------------------------
